@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>LinguaLens</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Amiri&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://code.responsivevoice.org/responsivevoice.js?key=FREE"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6fb;--surface:#fff;--primary:#4f46e5;--pl:#eef2ff;--accent:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--r:14px;--sh:0 2px 16px rgba(79,70,229,.08)}
+body.dark{--bg:#0f172a;--surface:#1e293b;--primary:#818cf8;--pl:#1e1b4b;--text:#f1f5f9;--muted:#94a3b8;--border:#334155}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+
+/* LOCK */
+#lock{position:fixed;inset:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:24px;z-index:9999}
+#lock h1{color:#fff;font-size:2rem;font-weight:700}
+#lock>p{color:rgba(255,255,255,.8);font-size:.9rem}
+.lcard{background:rgba(255,255,255,.13);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:28px 24px;width:100%;max-width:370px;display:flex;flex-direction:column;gap:14px}
+.lcard>p{color:rgba(255,255,255,.9);font-size:.88rem;text-align:center}
+
+/* حقل المفتاح — مُصلح */
+.key-field{display:flex;align-items:stretch;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:11px;overflow:hidden;height:48px}
+.key-field input{flex:1;padding:0 14px;background:transparent;border:none;color:#fff;font-family:'Cairo',sans-serif;font-size:1rem;outline:none;direction:ltr;min-width:0}
+.key-field input::placeholder{color:rgba(255,255,255,.55)}
+.eye-btn{width:46px;background:rgba(255,255,255,.1);border:none;border-right:1px solid rgba(255,255,255,.2);cursor:pointer;font-size:1.2rem;color:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+.bw{padding:13px;border-radius:11px;background:#fff;color:#4f46e5;font-family:'Cairo',sans-serif;font-weight:700;font-size:1rem;border:none;cursor:pointer;width:100%}
+.bo{padding:9px;border-radius:9px;background:transparent;color:rgba(255,255,255,.7);font-family:'Cairo',sans-serif;font-size:.82rem;border:1px solid rgba(255,255,255,.3);cursor:pointer;width:100%}
+
+/* APP */
+#app{display:none;flex-direction:column;min-height:100vh}
+#app.on{display:flex}
+.topbar{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:11px 15px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh)}
+.topbar h1{font-size:1.25rem;color:var(--primary);font-weight:700}
+.ico-btn{width:37px;height:37px;border-radius:9px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border);display:flex}
+.tab-btn{flex:1;padding:9px 4px 7px;border:none;background:none;cursor:pointer;color:var(--muted);font-family:'Cairo',sans-serif;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tab-btn .ti{font-size:1.3rem}
+.tab-btn.active{color:var(--primary)}
+.main{flex:1;padding:14px;padding-bottom:78px;overflow-y:auto}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:13px;box-shadow:var(--sh)}
+.ct{font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:11px;text-transform:uppercase;letter-spacing:.5px}
+.lang-row{display:flex;align-items:center;gap:7px}
+.lsel{flex:1;padding:9px 11px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;font-size:.88rem;outline:none}
+.swap{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:1rem;color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.up-row{display:flex;gap:7px;flex-wrap:wrap}
+.up-btn{flex:1;min-width:85px;padding:11px 7px;border-radius:11px;border:1.5px dashed var(--border);background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;font-size:.82rem;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px}
+.up-btn:active{border-color:var(--primary);background:var(--pl)}
+.uico{font-size:1.45rem}
+.srow{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.pill{padding:5px 11px;border-radius:18px;border:1px solid var(--border);background:var(--bg);font-family:'Cairo',sans-serif;font-size:.78rem;cursor:pointer;color:var(--text)}
+.pill:active{background:var(--pl);border-color:var(--primary)}
+#ipw{display:none;text-align:center;margin-bottom:9px}
+#ipr{max-width:100%;max-height:190px;border-radius:10px;border:1px solid var(--border)}
+#oprg{display:none}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-left:7px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.tbox{width:100%;min-height:95px;padding:11px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:'Cairo','Amiri',sans-serif;font-size:1rem;line-height:1.85;direction:auto;unicode-bidi:plaintext;resize:vertical;outline:none}
+.hint{font-size:.76rem;color:var(--muted);margin-top:5px}
+.arow{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+.btn{flex:1;padding:10px 7px;border-radius:9px;border:none;cursor:pointer;font-family:'Cairo',sans-serif;font-weight:600;font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:4px}
+.btn:active{opacity:.8}
+.bb{background:var(--primary);color:#fff}
+.bg{background:var(--accent);color:#fff}
+.br{background:var(--danger);color:#fff}
+.bgy{background:var(--border);color:var(--text)}
+
+/* READER */
+#ra{font-family:'Amiri','Cairo',serif;font-size:17px;line-height:2;color:var(--text);min-height:110px;user-select:text;-webkit-user-select:text;word-break:break-word}
+#ra p.line{margin-bottom:.6em;direction:auto;unicode-bidi:plaintext;text-align:justify}
+#ra .word{cursor:pointer;border-radius:3px;padding:1px 2px;display:inline}
+#ra .word:hover{background:var(--pl)}
+.rctrl{display:flex;align-items:center;gap:9px;background:var(--bg);border-radius:11px;padding:9px 13px;margin-bottom:11px;flex-wrap:wrap}
+.cb{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:.95rem;color:var(--text);display:flex;align-items:center;justify-content:center}
+.pb{padding:7px 16px;border-radius:9px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.88rem}
+.pw{margin:9px 0}.pl{font-size:.78rem;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between}
+.pbar{height:5px;background:var(--border);border-radius:99px;overflow:hidden}
+.pfill{height:100%;background:var(--primary);border-radius:99px;transition:width .4s;width:0%}
+
+/* VOCAB */
+.vt{width:100%;border-collapse:collapse;font-size:.86rem}
+.vt th{background:var(--pl);color:var(--primary);padding:7px 9px;text-align:right;font-weight:700}
+.vt td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.vt tr:last-child td{border-bottom:none}
+.sb,.db{width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center}
+.sb{background:var(--pl);color:var(--primary)}.db{background:#fee2e2;color:var(--danger)}
+
+/* QUIZ */
+.qcard{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--sh);min-height:150px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;padding:22px;cursor:pointer;margin:16px auto;max-width:320px;text-align:center}
+.qw{font-size:1.55rem;font-weight:700;color:var(--primary);direction:auto;unicode-bidi:plaintext}
+.qt{font-size:1.15rem;color:var(--accent);direction:auto;unicode-bidi:plaintext}
+.qacts{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
+.qb{padding:9px 20px;border-radius:11px;border:none;cursor:pointer;font-family:'Cairo',sans-serif;font-weight:700;font-size:.9rem}
+.qb.know{background:var(--accent);color:#fff}.qb.unknow{background:var(--danger);color:#fff}.qb.rev{background:var(--border);color:var(--text)}
+.qst{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:13px}
+.sch{padding:5px 13px;border-radius:18px;font-size:.8rem;font-weight:600;background:var(--bg);border:1px solid var(--border)}
+
+/* STATS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.sc{background:var(--bg);border-radius:11px;border:1px solid var(--border);padding:13px;text-align:center}
+.si{font-size:1.5rem;margin-bottom:3px}.sv{font-size:1.35rem;font-weight:700;color:var(--primary)}.sl{font-size:.76rem;color:var(--muted)}
+.mw{text-align:center;margin-top:15px}
+.mc{width:100px;height:100px;border-radius:50%;border:7px solid var(--primary);display:flex;align-items:center;justify-content:center;flex-direction:column;margin:0 auto 7px;background:var(--pl)}
+.mv{font-size:1.7rem;font-weight:700;color:var(--primary)}.ml{font-size:.68rem;color:var(--muted)}
+
+/* POPUP */
+#pop{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:15px;padding:15px 18px;box-shadow:0 8px 30px rgba(0,0,0,.17);z-index:500;min-width:230px;max-width:88vw;display:none;flex-direction:column;gap:9px;text-align:center}
+.ppw{font-size:1.25rem;font-weight:700;color:var(--primary);direction:auto;unicode-bidi:plaintext}
+.ppt{font-size:.97rem;color:var(--accent);direction:auto;unicode-bidi:plaintext}
+.ppa{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+
+/* TOAST */
+#toast{position:fixed;top:68px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:9px 18px;border-radius:9px;font-size:.86rem;z-index:9998;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- LOCK -->
+<div id="lock">
+  <h1>🔤 LinguaLens</h1>
+  <p>تعلّم اللغات بذكاء</p>
+  <div class="lcard">
+    <p>🔑 أدخل المفتاح للمتابعة</p>
+    <div class="key-field">
+      <button class="eye-btn" onclick="toggleEye()" type="button">👁️</button>
+      <input type="password" id="key-inp" placeholder="المفتاح السري..."/>
+    </div>
+    <button class="bw" onclick="unlock()">🔓 فتح التطبيق</button>
+    <p style="font-size:.74rem;color:rgba(255,255,255,.6)">أول مرة؟ اختر أي مفتاح وسيُحفظ تلقائياً</p>
+    <button class="bo" onclick="resetAll()">🔄 إعادة تعيين وحذف كل البيانات</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <h1>🔤 LinguaLens</h1>
+    <button class="ico-btn" id="dark-btn" onclick="toggleDark()">🌙</button>
+  </div>
+  <div class="main">
+
+    <!-- SCANNER -->
+    <div class="panel active" id="panel-scanner">
+      <div class="card">
+        <div class="ct">🌐 اللغات</div>
+        <div class="lang-row">
+          <select class="lsel" id="lf">
+            <option value="auto">🔍 تلقائي</option>
+            <option value="ar">🇸🇦 العربية</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="tr">🇹🇷 Türkçe</option>
+          </select>
+          <button class="swap" onclick="swapL()">⇄</button>
+          <select class="lsel" id="lt">
+            <option value="ar">🇸🇦 العربية</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="tr">🇹🇷 Türkçe</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">📂 تحميل محتوى</div>
+        <div class="up-row">
+          <label class="up-btn">
+            <span class="uico">📄</span><span>ملف نصي</span>
+            <input type="file" accept=".txt,.md,.csv,.srt" hidden onchange="loadTxt(event)"/>
+          </label>
+          <label class="up-btn">
+            <span class="uico">🖼️</span><span>صورة OCR</span>
+            <input type="file" accept="image/*" hidden onchange="loadOCR(event)"/>
+          </label>
+          <label class="up-btn">
+            <span class="uico">📷</span><span>الكاميرا</span>
+            <input type="file" accept="image/*" capture="environment" hidden onchange="loadOCR(event)"/>
+          </label>
+        </div>
+        <div class="srow">
+          <button class="pill" onclick="loadSmp('ar')">🇸🇦 عربي</button>
+          <button class="pill" onclick="loadSmp('en')">🇬🇧 English</button>
+          <button class="pill" onclick="loadSmp('fr')">🇫🇷 Français</button>
+          <button class="pill" onclick="loadSmp('es')">🇪🇸 Español</button>
+          <button class="pill" onclick="loadSmp('de')">🇩🇪 Deutsch</button>
+          <button class="pill" onclick="loadSmp('tr')">🇹🇷 Türkçe</button>
+        </div>
+      </div>
+      <div id="ipw"><img id="ipr" src="" alt=""/></div>
+      <div class="card" id="oprg">
+        <div style="display:flex;align-items:center">
+          <span id="ost">جارٍ استخراج النص…</span><span class="spin"></span>
+        </div>
+        <div class="pw" style="margin-top:7px">
+          <div class="pbar"><div class="pfill" id="ofill"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">📝 النص المستخرج</div>
+        <textarea class="tbox" id="etxt" placeholder="سيظهر النص هنا… أو اكتب مباشرة" oninput="onTI()"></textarea>
+        <p class="hint">💡 صور واضحة · JPG PNG WEBP</p>
+        <div class="arow">
+          <button class="btn bb" onclick="doTrans()">🌐 ترجمة</button>
+          <button class="btn bg" onclick="send2Read()">📖 قراءة</button>
+          <button class="btn br" onclick="clrTxt()">🗑️ مسح</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- READER -->
+    <div class="panel" id="panel-reader">
+      <div class="card">
+        <div class="ct">📖 القراءة التفاعلية</div>
+        <div class="rctrl">
+          <button class="cb" onclick="chgF(-1)">−</button>
+          <span id="fsv" style="font-size:.83rem;color:var(--muted);min-width:24px;text-align:center">17</span>
+          <button class="cb" onclick="chgF(1)">+</button>
+          <button class="cb" onclick="chgS(-.25)" style="margin-right:auto">−</button>
+          <span id="ssv" style="font-size:.8rem;color:var(--muted);min-width:38px">⚡1.0×</span>
+          <button class="cb" onclick="chgS(.25)">+</button>
+          <button class="pb" id="pbtn" onclick="togTTS()">▶ استماع</button>
+        </div>
+        <div class="pw">
+          <div class="pl"><span>التقدم</span><span id="ppc">0%</span></div>
+          <div class="pbar"><div class="pfill" id="rfill"></div></div>
+        </div>
+        <div id="ra"><p style="color:var(--muted);font-size:.93rem">📚 حمّل نصاً من تبويب الماسح للبدء</p></div>
+      </div>
+    </div>
+
+    <!-- VOCAB -->
+    <div class="panel" id="panel-vocab">
+      <div class="card">
+        <div class="ct">🗂️ مفرداتي · <span id="vcnt">0</span> كلمة</div>
+        <div id="vemp" style="color:var(--muted);font-size:.88rem;padding:8px 0">لا توجد مفردات بعد</div>
+        <div style="overflow-x:auto">
+          <table class="vt" id="vtbl" style="display:none">
+            <thead><tr><th>#</th><th>الكلمة</th><th>الترجمة</th><th>اللغة</th><th>🔊</th><th>🗑️</th></tr></thead>
+            <tbody id="vtbd"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:9px">
+          <button class="btn bgy" onclick="expCSV()" style="flex:none;padding:8px 16px">📥 تصدير CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div class="panel" id="panel-quiz">
+      <div class="card">
+        <div class="ct">🃏 اختبار المفردات · <span id="qcnt">0</span> كلمة</div>
+        <div id="qemp" style="color:var(--muted);font-size:.88rem;padding:8px 0">احفظ كلمات من القراءة أولاً</div>
+        <div id="qwrp" style="display:none">
+          <div class="qst">
+            <span class="sch" style="background:#dcfce7;color:#166534">✅ <span id="qk">0</span></span>
+            <span class="sch" style="background:#fee2e2;color:#991b1b">❌ <span id="qu">0</span></span>
+            <span class="sch">⏳ <span id="ql">0</span> متبقية</span>
+          </div>
+          <div class="qcard" onclick="revCard()">
+            <div class="qw" id="qword">—</div>
+            <div id="qrev" style="display:none">
+              <div class="qt" id="qtrans">—</div>
+              <div style="font-size:.78rem;color:var(--muted);margin-top:4px" id="qlang">—</div>
+            </div>
+            <div id="qhint" style="font-size:.8rem;color:var(--muted);margin-top:7px">اضغط للكشف</div>
+          </div>
+          <div class="qacts">
+            <button class="qb unknow" onclick="markC(false)">❌ لم أعرف</button>
+            <button class="qb rev" onclick="revCard()">👁️ كشف</button>
+            <button class="qb know" onclick="markC(true)">✅ عرفت</button>
+          </div>
+          <div style="text-align:center;margin-top:13px">
+            <button class="btn bgy" onclick="rstQuiz()" style="flex:none;padding:8px 18px">🔄 إعادة الاختبار</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="panel" id="panel-progress">
+      <div class="card">
+        <div class="ct">📊 إحصائياتي</div>
+        <div class="sgrid">
+          <div class="sc"><div class="si">📚</div><div class="sv" id="stv">0</div><div class="sl">كلمات محفوظة</div></div>
+          <div class="sc"><div class="si">📖</div><div class="sv" id="stt">0</div><div class="sl">نصوص محملة</div></div>
+          <div class="sc"><div class="si">🔊</div><div class="sv" id="sts">0</div><div class="sl">كلمات منطوقة</div></div>
+          <div class="sc"><div class="si">🃏</div><div class="sv" id="stc">0</div><div class="sl">إجابات صحيحة</div></div>
+          <div class="sc"><div class="si">🌐</div><div class="sv" id="str">0</div><div class="sl">ترجمات مُنجزة</div></div>
+        </div>
+        <div class="mw">
+          <div class="mc"><span class="mv" id="mval">0%</span><span class="ml">الإتقان الكلي</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="tabbar">
+    <button class="tab-btn active" onclick="swTab('scanner',this)"><span class="ti">🔍</span>الماسح</button>
+    <button class="tab-btn" onclick="swTab('reader',this)"><span class="ti">📖</span>القراءة</button>
+    <button class="tab-btn" onclick="swTab('vocab',this)"><span class="ti">🗂️</span>مفرداتي</button>
+    <button class="tab-btn" onclick="swTab('quiz',this)"><span class="ti">🃏</span>اختبار</button>
+    <button class="tab-btn" onclick="swTab('progress',this)"><span class="ti">📊</span>تقدمي</button>
+  </div>
+</div>
+
+<!-- POPUP -->
+<div id="pop">
+  <div class="ppw" id="ppw">—</div>
+  <div class="ppt" id="ppt">جارٍ الترجمة…</div>
+  <div class="ppa">
+    <button class="btn bb" style="flex:none;padding:7px 14px" onclick="spkPop()">🔊 نطق</button>
+    <button class="btn bg" style="flex:none;padding:7px 14px" onclick="savPop()">＋ حفظ</button>
+    <button class="btn bgy" style="flex:none;padding:7px 14px" onclick="clsPop()">إغلاق</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+var KEY='',vocab=[],stats={texts:0,spoken:0,correct:0,trans:0};
+var fs=17,spd=1.0,ttsOn=false,ttsU=null;
+var qQ=[],qI=0,qRev=false;
+var cW='',cT='',cL='';
+var dark=false;
+
+var SMP={
+  ar:'الذكاء الاصطناعي يُحدث ثورة في مجال التعليم. أصبح بإمكان الطلاب تعلّم اللغات بطريقة تفاعلية وممتعة، مما يُسرّع من اكتساب المفردات وتحسين مهارات القراءة والاستيعاب. وتُعدّ هذه التقنية من أبرز الابتكارات التي غيّرت وجه التعليم الحديث.',
+  en:'Artificial intelligence is revolutionizing education. Students can now learn languages interactively and engagingly, which accelerates vocabulary acquisition and improves reading comprehension skills significantly.',
+  fr:"L'intelligence artificielle révolutionne l'éducation. Les étudiants peuvent désormais apprendre les langues de manière interactive, ce qui accélère considérablement l'acquisition du vocabulaire et améliore la compréhension.",
+  es:'La inteligencia artificial está revolucionando la educación. Los estudiantes ahora pueden aprender idiomas de manera interactiva, lo que acelera notablemente la adquisición de vocabulario y mejora la comprensión lectora.',
+  de:'Künstliche Intelligenz revolutioniert die Bildung grundlegend. Schüler können jetzt Sprachen interaktiv und ansprechend lernen, was den Wortschatzerwerb beschleunigt und das Leseverständnis verbessert.',
+  tr:'Yapay zeka eğitimi köklü biçimde devrimleştiriyor. Öğrenciler artık dilleri etkileşimli bir şekilde öğrenebilir, bu da kelime edinimini hızlandırır ve okuma anlayışını geliştirir.'
+};
+
+/* STORAGE */
+function sv(){try{localStorage.setItem('ll_v_'+KEY,JSON.stringify(vocab));localStorage.setItem('ll_s_'+KEY,JSON.stringify(stats));}catch(e){}}
+function ld(){try{var v=localStorage.getItem('ll_v_'+KEY);var s=localStorage.getItem('ll_s_'+KEY);vocab=v?JSON.parse(v):[];stats=s?JSON.parse(s):{texts:0,spoken:0,correct:0,trans:0};}catch(e){vocab=[];stats={texts:0,spoken:0,correct:0,trans:0};}}
+
+/* LOCK */
+function unlock(){
+  var k=document.getElementById('key-inp').value.trim();
+  if(!k){toast('أدخل مفتاحاً');return;}
+  var saved=localStorage.getItem('ll_key');
+  if(!saved){localStorage.setItem('ll_key',k);}
+  else if(saved!==k){toast('مفتاح خاطئ!');return;}
+  KEY=k;ld();
+  document.getElementById('lock').style.display='none';
+  document.getElementById('app').classList.add('on');
+  refAll();
+}
+function toggleEye(){var i=document.getElementById('key-inp');i.type=i.type==='password'?'text':'password';}
+function resetAll(){if(!confirm('حذف جميع البيانات؟'))return;localStorage.clear();location.reload();}
+
+/* DARK */
+function toggleDark(){dark=!dark;document.body.classList.toggle('dark',dark);document.getElementById('dark-btn').textContent=dark?'☀️':'🌙';localStorage.setItem('ll_dark',dark?'1':'0');}
+
+/* TABS */
+function swTab(n,b){
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(x){x.classList.remove('active');});
+  document.getElementById('panel-'+n).classList.add('active');
+  b.classList.add('active');
+  if(n==='progress')refStats();
+  if(n==='quiz')initQuiz();
+  if(n==='vocab')refVocab();
+}
+
+/* LANG */
+function swapL(){var f=document.getElementById('lf');var t=document.getElementById('lt');var tmp=f.value==='auto'?'ar':f.value;f.value=t.value;t.value=tmp;}
+
+/* TEXT */
+function setTxt(tx){
+  var ta=document.getElementById('etxt');
+  ta.value=tx;
+  var r=/[\u0600-\u06FF]/.test(tx);
+  ta.style.direction=r?'rtl':'ltr';
+  ta.style.textAlign=r?'right':'left';
+}
+function onTI(){var ta=document.getElementById('etxt');var r=/[\u0600-\u06FF]/.test(ta.value);ta.style.direction=r?'rtl':'ltr';ta.style.textAlign=r?'right':'left';}
+function clrTxt(){document.getElementById('etxt').value='';document.getElementById('ipw').style.display='none';}
+function loadSmp(l){setTxt(SMP[l]||'');toast('تم تحميل نص تجريبي');}
+
+/* FILE */
+function loadTxt(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){setTxt(ev.target.result);toast('✅ تم تحميل الملف');stats.texts++;sv();};
+  r.onerror=function(){toast('❌ خطأ في قراءة الملف');};
+  r.readAsText(f,'UTF-8');
+}
+
+/* OCR */
+function loadOCR(e){var f=e.target.files[0];if(!f)return;runOCR(f);}
+
+function cleanOCR(tx){
+  tx=tx.replace(/[ \t]{2,}/g,' ');
+  tx=tx.replace(/\n{3,}/g,'\n\n');
+  tx=tx.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');
+  return tx.trim();
+}
+
+function loadOCR(e){var f=e.target.files[0];if(!f)return;runOCR(f);}
+
+function runOCR(src){
+  if(src instanceof Blob){var u=URL.createObjectURL(src);document.getElementById('ipr').src=u;document.getElementById('ipw').style.display='block';}
+  var blob=src instanceof Blob?src:null;
+  if(!blob){fetch(src).then(function(r){return r.blob();}).then(function(b){runOCRBlob(b);});return;}
+  runOCRBlob(blob);
+}
+
+function runOCRBlob(blob){
+  var pg=document.getElementById('oprg');
+  pg.style.display='block';
+  document.getElementById('ost').textContent='جارٍ تحضير الصورة…';
+  document.getElementById('ofill').style.width='10%';
+  var img=new Image();
+  var url=URL.createObjectURL(blob);
+  img.onload=function(){
+    URL.revokeObjectURL(url);
+    var canvas=document.createElement('canvas');
+    var max=1000,w=img.width,h=img.height;
+    if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
+    canvas.width=w;canvas.height=h;
+    var ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+    ctx.drawImage(img,0,0,w,h);
+    var b64=canvas.toDataURL('image/jpeg',0.75);
+    document.getElementById('ofill').style.width='40%';
+    document.getElementById('ost').textContent='جارٍ استخراج النص…';
+    var lf=document.getElementById('lf');
+    var langVal=lf?lf.value:'en';
+    var langMap={ar:'ara',en:'eng',fr:'fre',es:'spa',de:'ger',tr:'tur'};
+    var ocrLang=langMap[langVal]||'eng';
+    var fd=new FormData();
+    fd.append('apikey','helloworld');
+    fd.append('base64Image',b64);
+    fd.append('language',ocrLang);
+    fd.append('isOverlayRequired','false');
+    var isAr=ocrLang==='ara';
+    fd.append('OCREngine',isAr?'1':'2');
+    fd.append('scale','true');
+    fd.append('detectOrientation','true');
+    if(isAr)fd.append('isTable','false');
+    var done=false;
+    var maxTime=isAr?45000:25000;
+    var timer=setTimeout(function(){if(done)return;done=true;pg.style.display='none';toast('❌ انتهت المهلة — جرب صورة أوضح');},maxTime);
+    fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd})
+    .then(function(res){if(!res.ok)throw new Error('خطأ '+res.status);return res.json();})
+    .then(function(d){
+      if(done)return;done=true;clearTimeout(timer);pg.style.display='none';
+      if(d.IsErroredOnProcessing){toast('❌ '+(d.ErrorMessage?d.ErrorMessage[0]:'خطأ'));return;}
+      var tx='';
+      if(d.ParsedResults&&d.ParsedResults[0])tx=(d.ParsedResults[0].ParsedText||'').trim();
+      if(tx){document.getElementById('etxt').value=cleanOCR(tx);toast('✅ تم استخراج النص — اضغط قراءة');stats.texts++;sv();}
+      else{toast('⚠️ لا نص — تأكد من وضوح الصورة واللغة');}
+    })
+    .catch(function(e){if(done)return;done=true;clearTimeout(timer);pg.style.display='none';toast('❌ '+e.message);});
+  };
+  img.onerror=function(){pg.style.display='none';toast('❌ خطأ في قراءة الصورة');};
+  img.src=url;
+}
+
+
+/* TRANSLATE */
+function doTrans(){
+  var tx=document.getElementById('etxt').value.trim();
+  if(!tx){toast('لا يوجد نص');return;}
+  var f=document.getElementById('lf').value;
+  if(f==='auto')f='ar';
+  var t=document.getElementById('lt').value;
+  if(f===t){toast('اللغتان متطابقتان');return;}
+  toast('🌐 جارٍ الترجمة…');
+  fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(tx)+'&langpair='+f+'|'+t)
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var tr=d&&d.responseData&&d.responseData.translatedText;
+    if(tr){setTxt(tr);stats.trans++;sv();toast('✅ تمت الترجمة');}
+    else{toast('⚠️ فشلت الترجمة');}
+  }).catch(function(){toast('❌ خطأ في الاتصال');});
+}
+
+function trWord(w,f,t){
+  return fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(w)+'&langpair='+f+'|'+t)
+  .then(function(r){return r.json();})
+  .then(function(d){return (d&&d.responseData&&d.responseData.translatedText)||'—';})
+  .catch(function(){return '—';});
+}
+
+/* READER */
+function send2Read(){
+  var tx=document.getElementById('etxt').value.trim();
+  if(!tx){toast('لا يوجد نص');return;}
+  buildReader(tx);
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('panel-reader').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  toast('📖 تم الإرسال للقراءة');
+}
+
+function buildReader(tx){
+  var area=document.getElementById('ra');
+
+  // تنظيف النص من \r وتوحيد فواصل الأسطر
+  tx=tx.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+
+  // اكتشاف اتجاه النص — عربي أو لاتيني
+  var isRTL=/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(tx);
+  var dir=isRTL?'rtl':'ltr';
+  var align=isRTL?'right':'left';
+
+  // تقسيم النص إلى فقرات
+  var paras=tx.split(/\n+/);
+  var html='';
+
+  paras.forEach(function(para){
+    if(!para.trim())return;
+
+    // اكتشاف اتجاه كل فقرة على حدة
+    var pRTL=/[\u0600-\u06FF]/.test(para);
+    var pDir=pRTL?'rtl':'ltr';
+    var pAlign=pRTL?'right':'left';
+
+    html+='<p class="line" style="direction:'+pDir+';text-align:'+pAlign+';margin-bottom:.7em;">';
+
+    var toks=para.split(/(\s+)/);
+    toks.forEach(function(tok){
+      if(/^\s+$/.test(tok)){
+        html+=' ';
+      } else {
+        var cl=tok.replace(/[.,،؟?!؛;:"""''()$$$$«»\-]/g,'');
+        if(!cl){html+=esc(tok);}
+        else{html+='<span class="word" data-w="'+esc(cl)+'">'+esc(tok)+'</span>';}
+      }
+    });
+    html+='</p>';
+  });
+
+  area.innerHTML=html||'<p style="color:var(--muted)">لا يوجد نص</p>';
+  area.style.fontSize=fs+'px';
+  area.style.direction=dir;
+
+  // أحداث النقر على الكلمات
+  area.querySelectorAll('.word').forEach(function(el){
+    el.addEventListener('click',function(){wClick(this);});
+  });
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function wClick(el){
+  var w=el.dataset.w;if(!w)return;
+  cW=w;cL=detLang(w);
+  var tl=document.getElementById('lt').value;
+  if(tl===cL)tl='ar';
+  document.getElementById('ppw').textContent=w;
+  document.getElementById('ppt').textContent='جارٍ الترجمة…';
+  document.getElementById('pop').style.display='flex';
+  trWord(w,cL,tl).then(function(t){cT=t;document.getElementById('ppt').textContent=t;});
+}
+
+function detLang(t){
+  if(/[\u0600-\u06FF]/.test(t))return 'ar';
+  if(/[àâçèéêëîïôùûü]/i.test(t))return 'fr';
+  if(/[áéíóúüñ]/i.test(t))return 'es';
+  if(/[äöüß]/i.test(t))return 'de';
+  return 'en';
+}
+
+function clsPop(){document.getElementById('pop').style.display='none';}
+function spkPop(){spk(cW,cL);stats.spoken++;sv();}
+function savPop(){
+  if(!cW||!cT)return;
+  for(var i=0;i<vocab.length;i++){if(vocab[i].word===cW){toast('محفوظة مسبقاً');clsPop();return;}}
+  vocab.push({word:cW,trans:cT,lang:cL});sv();refVocab();
+  toast('✅ تم حفظ: '+cW);clsPop();
+}
+
+/* TTS */
+var ttsFullText='';
+
+function getBestVoice(langCode){
+  var voices=window.speechSynthesis.getVoices();
+  if(!voices.length)return null;
+  var v=voices.find(function(v){return v.lang===langCode;});
+  if(v)return v;
+  var base=langCode.split('-')[0];
+  return voices.find(function(v){return v.lang.startsWith(base);})||null;
+}
+
+function getRVoice(lang){
+  var map={ar:'Arabic Male','ar-SA':'Arabic Male',en:'UK English Male','en-US':'US English Male',
+    fr:'French Female',es:'Spanish Female',de:'Deutsch Female',tr:'Turkish Female'};
+  return map[lang]||map[lang.split('-')[0]]||'UK English Male';
+}
+
+function gtTTS(text,lang,onEnd){
+  var sentences=text.match(/[^.!?\u061F\u060C,\n]+[.!?\u061F\u060C,\n]*/g)||[text];
+  var chunks=[],cur='';
+  for(var i=0;i<sentences.length;i++){
+    if((cur+sentences[i]).length>180){if(cur)chunks.push(cur.trim());cur=sentences[i];}
+    else{cur+=sentences[i];}
+  }
+  if(cur.trim())chunks.push(cur.trim());
+  if(!chunks.length){if(onEnd)onEnd();return;}
+  var ci=0;
+  var failCount=0;
+  function next(){
+    if(ci>=chunks.length){if(onEnd)onEnd();return;}
+    var url='https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl='+lang+'&q='+encodeURIComponent(chunks[ci]);
+    var a=new Audio(url);
+    a.oncanplaythrough=function(){a.play().catch(function(){failCount++;ci++;next();});};
+    a.onended=function(){failCount=0;ci++;next();};
+    a.onerror=function(){
+      failCount++;
+      if(failCount>=3){
+        // Google TTS محجوب — نوقف
+        if(onEnd)onEnd();
+        toast('\u26A0\uFE0F تعذّر نطق العربية — جرب مع VPN أو اتصال آخر');
+        return;
+      }
+      ci++;next();
+    };
+    ci++;
+    // timeout لكل جزء
+    var t=setTimeout(function(){a.onerror&&a.onerror();},8000);
+    a.onended=function(){clearTimeout(t);failCount=0;ci++;next();};
+    a.load();
+  }
+  next();
+}
+
+function spk(tx,lang){
+  if(!window.speechSynthesis){toast('المتصفح لا يدعم النطق');return;}
+  window.speechSynthesis.cancel();
+  var langCode=loc(lang);
+  function go(){
+    var voice=getBestVoice(langCode);
+    if(voice){var u=new SpeechSynthesisUtterance(tx);u.lang=langCode;u.rate=spd;u.voice=voice;window.speechSynthesis.speak(u);}
+    else if(typeof responsiveVoice!=='undefined'&&responsiveVoice.voiceSupport()){responsiveVoice.speak(tx,getRVoice(langCode),{rate:spd-0.5});}
+    else{gtTTS(tx,langCode.split('-')[0],null);}
+  }
+  var v=window.speechSynthesis.getVoices();
+  if(v.length){go();}else{window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.onvoiceschanged=null;go();};setTimeout(go,1000);}
+}
+
+function togTTS(){
+  if(!window.speechSynthesis){toast('المتصفح لا يدعم النطق');return;}
+  if(ttsOn){
+    window.speechSynthesis.cancel();
+    if(typeof responsiveVoice!=='undefined')responsiveVoice.cancel();
+    ttsOn=false;document.getElementById('pbtn').textContent='\u25B6 استماع';
+    document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+    document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
+    return;
+  }
+  var tx=document.getElementById('ra').innerText.trim();
+  if(!tx){toast('لا يوجد نص');return;}
+  ttsFullText=tx;
+  var lang=loc(detLang(tx));
+  function go(){
+    // للعربية: نذهب مباشرة لـ gtTTS بدون محاولة Web Speech
+    var arabicLang=lang.startsWith('ar');
+    var voice=arabicLang?null:getBestVoice(lang);
+    ttsOn=true;document.getElementById('pbtn').textContent='\u23F9 إيقاف';
+    if(voice){
+      ttsU=new SpeechSynthesisUtterance(tx);ttsU.lang=lang;ttsU.rate=spd;ttsU.voice=voice;
+      // كشف الفشل الفوري (الصوت موجود لكن لا يعمل فعلياً)
+      var started=false;
+      var failTimer=setTimeout(function(){
+        if(!started&&ttsOn){
+          // الصوت فشل — ننتقل لـ gtTTS
+          window.speechSynthesis.cancel();
+          ttsOn=false;
+          useFallbackTTS(tx,lang);
+        }
+      },1500);
+      ttsU.onboundary=function(e){
+        started=true;clearTimeout(failTimer);
+        if(e.name!=='word')return;
+        var ci=e.charIndex;
+        document.getElementById('rfill').style.width=Math.round((ci/tx.length)*100)+'%';
+        document.getElementById('ppc').textContent=Math.round((ci/tx.length)*100)+'%';
+        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+        var words=document.getElementById('ra').querySelectorAll('.word');
+        var acc=0;
+        for(var i=0;i<words.length;i++){var w=words[i].textContent;var pos=tx.indexOf(w,acc);if(pos===-1)continue;if(ci>=pos&&ci<pos+w.length){words[i].classList.add('tts-active');words[i].scrollIntoView({block:'nearest',behavior:'smooth'});break;}if(pos>ci)break;acc=pos+w.length;}
+      };
+      ttsU.onstart=function(){started=true;clearTimeout(failTimer);};
+      ttsU.onend=function(){
+        clearTimeout(failTimer);
+        if(!started){useFallbackTTS(tx,lang);return;}
+        ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
+        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+        document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
+      };
+      ttsU.onerror=function(e){
+        clearTimeout(failTimer);
+        if(e.error==='interrupted')return;
+        if(!started){useFallbackTTS(tx,lang);return;}
+        ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
+        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+      };
+      window.speechSynthesis.speak(ttsU);
+    } else if(typeof responsiveVoice!=='undefined'&&responsiveVoice.voiceSupport()){
+      responsiveVoice.speak(tx,getRVoice(lang),{rate:Math.max(0,Math.min(1,spd-0.5)),
+        onstart:function(){document.getElementById('rfill').style.width='50%';},
+        onend:function(){ttsOn=false;document.getElementById('pbtn').textContent='\u25B6 استماع';document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';}});
+    } else {
+      useFallbackTTS(tx,lang);
+    }
+  }
+  var v=window.speechSynthesis.getVoices();
+  if(v.length){go();}else{window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.onvoiceschanged=null;go();};setTimeout(function(){if(!ttsOn)go();},2000);}
+}
+
+
+function useFallbackTTS(tx,lang){
+  ttsOn=true;
+  document.getElementById('pbtn').textContent='⏹ إيقاف';
+  if(typeof responsiveVoice!=='undefined'&&responsiveVoice.voiceSupport()){
+    responsiveVoice.speak(tx,getRVoice(lang),{
+      rate:Math.max(0,Math.min(1,spd-0.5)),
+      onstart:function(){document.getElementById('rfill').style.width='50%';},
+      onend:function(){ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';},
+      onerror:function(){
+        // آخر خيار: Google Translate TTS
+        gtTTS(tx,lang.split('-')[0],function(){
+          ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
+          document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
+        });
+      }
+    });
+  } else {
+    gtTTS(tx,lang.split('-')[0],function(){
+      ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
+      document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
+    });
+  }
+}
+
+function loc(l){var m={ar:'ar-SA',en:'en-US',fr:'fr-FR',es:'es-ES',de:'de-DE',tr:'tr-TR'};return m[l]||'ar-SA';}
+function chgF(d){fs=Math.max(12,Math.min(28,fs+d));document.getElementById('fsv').textContent=fs;document.getElementById('ra').style.fontSize=fs+'px';}
+function chgS(d){spd=Math.max(0.5,Math.min(2.0,Math.round((spd+d)*4)/4));document.getElementById('ssv').textContent='⚡'+spd.toFixed(2)+'×';}
+
+/* VOCAB */
+function refVocab(){
+  var c=vocab.length;
+  document.getElementById('vcnt').textContent=c;
+  var emp=document.getElementById('vemp');
+  var tbl=document.getElementById('vtbl');
+  var tbd=document.getElementById('vtbd');
+  if(!c){emp.style.display='block';tbl.style.display='none';return;}
+  emp.style.display='none';tbl.style.display='table';
+  tbd.innerHTML=vocab.map(function(v,i){
+    return '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td style="font-weight:600;direction:auto;unicode-bidi:plaintext">'+esc(v.word)+'</td>'+
+      '<td style="color:var(--accent);direction:auto;unicode-bidi:plaintext">'+esc(v.trans)+'</td>'+
+      '<td style="color:var(--muted)">'+esc(v.lang)+'</td>'+
+      '<td><button class="sb" onclick="spk(\''+esc(v.word)+'\',\''+v.lang+'\');stats.spoken++;sv();">🔊</button></td>'+
+      '<td><button class="db" onclick="delV('+i+')">🗑️</button></td>'+
+    '</tr>';
+  }).join('');
+}
+function delV(i){vocab.splice(i,1);sv();refVocab();}
+function expCSV(){
+  if(!vocab.length){toast('لا توجد مفردات');return;}
+  var bom='\uFEFF';
+  var rows=[['#','الكلمة','الترجمة','اللغة']].concat(vocab.map(function(v,i){return [i+1,v.word,v.trans,v.lang];}));
+  var csv=bom+rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='LinguaLens.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* QUIZ */
+function initQuiz(){
+  document.getElementById('qcnt').textContent=vocab.length;
+  var emp=document.getElementById('qemp');var wrp=document.getElementById('qwrp');
+  if(!vocab.length){emp.style.display='block';wrp.style.display='none';return;}
+  emp.style.display='none';wrp.style.display='block';
+  rstQuiz();
+}
+function startSRS(){
+  var now=Date.now();
+  var due=vocab.filter(function(v){return !v.nextReview||v.nextReview<=now;});
+  var later=vocab.filter(function(v){return v.nextReview&&v.nextReview>now;});
+  due.sort(function(a,b){return (a.mastery||0)-(b.mastery||0);});
+  qQ=due.concat(later);qI=0;qRev=false;
+  document.getElementById('qk').textContent='0';document.getElementById('qu').textContent='0';
+  shwCard();
+}
+function rstQuiz(){
+  qQ=vocab.slice().sort(function(){return Math.random()-.5;});
+  qI=0;qRev=false;
+  document.getElementById('qk').textContent='0';
+  document.getElementById('qu').textContent='0';
+  shwCard();
+}
+function shwCard(){
+  if(qI>=qQ.length){
+    document.getElementById('qword').textContent='🎉 انتهى الاختبار!';
+    document.getElementById('qrev').style.display='none';
+    document.getElementById('qhint').style.display='none';
+    document.getElementById('ql').textContent='0';
+    return;
+  }
+  var v=qQ[qI];qRev=false;
+  document.getElementById('qword').textContent=v.word;
+  document.getElementById('qrev').style.display='none';
+  document.getElementById('qhint').style.display='block';
+  document.getElementById('qtrans').textContent=v.trans;
+  document.getElementById('qlang').textContent=v.lang;
+  document.getElementById('ql').textContent=qQ.length-qI;
+}
+function revCard(){
+  if(qRev)return;qRev=true;
+  document.getElementById('qrev').style.display='block';
+  document.getElementById('qhint').style.display='none';
+}
+function markC(knew){
+  if(!qRev)revCard();
+  if(knew){
+    var k=parseInt(document.getElementById('qk').textContent)+1;
+    document.getElementById('qk').textContent=k;
+    stats.correct++;sv();
+  } else {
+    var u=parseInt(document.getElementById('qu').textContent)+1;
+    document.getElementById('qu').textContent=u;
+  }
+  qI++;setTimeout(shwCard,300);
+}
+
+/* STATS */
+function refStats(){
+  document.getElementById('stv').textContent=vocab.length;
+  document.getElementById('stt').textContent=stats.texts||0;
+  document.getElementById('sts').textContent=stats.spoken||0;
+  document.getElementById('stc').textContent=stats.correct||0;
+  document.getElementById('str').textContent=stats.trans||0;
+  var m=vocab.length?Math.min(100,Math.round((stats.correct||0)/vocab.length*100)):0;
+  document.getElementById('mval').textContent=m+'%';
+}
+function refAll(){refVocab();refStats();}
+
+/* TOAST */
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2500);
+}
+
+/* ENTER KEY */
+document.getElementById('key-inp').addEventListener('keydown',function(e){if(e.key==='Enter')unlock();});
+</script>
+</body>
+</html>
