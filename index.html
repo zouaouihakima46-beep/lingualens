@@ -678,76 +678,71 @@ function spk(tx,lang){
 }
 
 function togTTS(){
-  if(!window.speechSynthesis){toast('المتصفح لا يدعم النطق');return;}
-  if(ttsOn){
-    window.speechSynthesis.cancel();
-    if(typeof responsiveVoice!=='undefined')responsiveVoice.cancel();
-    if(ttsAudio){ttsAudio.pause();ttsAudio=null;}
-    ttsOn=false;document.getElementById('pbtn').textContent='\u25B6 استماع';
-    document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
-    document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
-    return;
-  }
   var tx=document.getElementById('ra').innerText.trim();
   if(!tx){toast('لا يوجد نص');return;}
-  ttsFullText=tx;
-  var lang=loc(detLang(tx));
-  function go(){
-    // للعربية: نذهب مباشرة لـ gtTTS بدون محاولة Web Speech
-    var arabicLang=lang.startsWith('ar');
-    var voice=arabicLang?null:getBestVoice(lang);
-    ttsOn=true;document.getElementById('pbtn').textContent='\u23F9 إيقاف';
-    if(voice){
-      ttsU=new SpeechSynthesisUtterance(tx);ttsU.lang=lang;ttsU.rate=spd;ttsU.voice=voice;
-      // كشف الفشل الفوري (الصوت موجود لكن لا يعمل فعلياً)
-      var started=false;
-      var failTimer=setTimeout(function(){
-        if(!started&&ttsOn){
-          // الصوت فشل — ننتقل لـ gtTTS
-          window.speechSynthesis.cancel();
-          ttsOn=false;
-          useFallbackTTS(tx,lang);
-        }
-      },1500);
-      ttsU.onboundary=function(e){
-        started=true;clearTimeout(failTimer);
-        if(e.name!=='word')return;
-        var ci=e.charIndex;
-        document.getElementById('rfill').style.width=Math.round((ci/tx.length)*100)+'%';
-        document.getElementById('ppc').textContent=Math.round((ci/tx.length)*100)+'%';
-        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
-        var words=document.getElementById('ra').querySelectorAll('.word');
-        var acc=0;
-        for(var i=0;i<words.length;i++){var w=words[i].textContent;var pos=tx.indexOf(w,acc);if(pos===-1)continue;if(ci>=pos&&ci<pos+w.length){words[i].classList.add('tts-active');words[i].scrollIntoView({block:'nearest',behavior:'smooth'});break;}if(pos>ci)break;acc=pos+w.length;}
-      };
-      ttsU.onstart=function(){started=true;clearTimeout(failTimer);};
-      ttsU.onend=function(){
-        clearTimeout(failTimer);
-        if(!started){useFallbackTTS(tx,lang);return;}
-        ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
-        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
-        document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
-      };
-      ttsU.onerror=function(e){
-        clearTimeout(failTimer);
-        if(e.error==='interrupted')return;
-        if(!started){useFallbackTTS(tx,lang);return;}
-        ttsOn=false;document.getElementById('pbtn').textContent='▶ استماع';
-        document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
-      };
-      window.speechSynthesis.speak(ttsU);
-    } else if(typeof responsiveVoice!=='undefined'&&responsiveVoice.voiceSupport()){
-      responsiveVoice.speak(tx,getRVoice(lang),{rate:Math.max(0,Math.min(1,spd-0.5)),
-        onstart:function(){document.getElementById('rfill').style.width='50%';},
-        onend:function(){ttsOn=false;document.getElementById('pbtn').textContent='\u25B6 استماع';document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';}});
-    } else {
-      useFallbackTTS(tx,lang);
-    }
-  }
-  var v=window.speechSynthesis.getVoices();
-  if(v.length){go();}else{window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.onvoiceschanged=null;go();};setTimeout(function(){if(!ttsOn)go();},2000);}
-}
 
+  // إذا كان يعمل — أوقفه
+  var existing=document.getElementById('tts-audio');
+  if(existing && !existing.paused){
+    existing.pause();
+    existing.currentTime=0;
+    ttsOn=false;
+    document.getElementById('pbtn').textContent='▶ استماع';
+    document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+    document.getElementById('rfill').style.width='0%';
+    document.getElementById('ppc').textContent='0%';
+    return;
+  }
+
+  var lang=loc(detLang(tx));
+
+  // تقسيم النص إلى جمل
+  ttsFullText=tx;
+  var chunk=tx.substring(0,200);
+  var url='https://translate.google.com/translate_tts?ie=UTF-8&q='
+    +encodeURIComponent(chunk)+'&tl='+lang.split('-')[0]+'&client=tw-ob';
+
+  var audio=document.getElementById('tts-audio');
+  if(!audio){
+    audio=document.createElement('audio');
+    audio.id='tts-audio';
+    document.body.appendChild(audio);
+  }
+
+  audio.src=url;
+
+  audio.onplay=function(){
+    ttsOn=true;
+    document.getElementById('pbtn').textContent='⏹ إيقاف';
+  };
+
+  audio.onended=function(){
+    ttsOn=false;
+    document.getElementById('pbtn').textContent='▶ استماع';
+    document.getElementById('rfill').style.width='100%';
+    document.getElementById('ppc').textContent='100%';
+    document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
+  };
+
+  audio.ontimeupdate=function(){
+    var pct=Math.round((audio.currentTime/audio.duration)*100)||0;
+    document.getElementById('rfill').style.width=pct+'%';
+    document.getElementById('ppc').textContent=pct+'%';
+  };
+
+  audio.onerror=function(){
+    ttsOn=false;
+    document.getElementById('pbtn').textContent='▶ استماع';
+    toast('❌ تعذّر تشغيل الصوت');
+  };
+
+  audio.load();
+  audio.play().catch(function(){
+    ttsOn=false;
+    document.getElementById('pbtn').textContent='▶ استماع';
+    toast('❌ تعذّر تشغيل الصوت');
+  });
+}
 
 function useFallbackTTS(tx,lang){
   ttsOn=true;
