@@ -452,15 +452,45 @@ function runOCRBlob(blob){
     var done=false;
     var maxTime=isAr?45000:25000;
     var timer=setTimeout(function(){if(done)return;done=true;pg.style.display='none';toast('❌ انتهت المهلة — جرب صورة أوضح');},maxTime);
-    fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd})
-    .then(function(res){if(!res.ok)throw new Error('خطأ '+res.status);return res.json();})
+    // للعربية نجرب OCR.space Engine 1 أولاً
+    var ocrUrl='https://api.ocr.space/parse/image';
+    fetch(ocrUrl,{method:'POST',body:fd})
+    .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
     .then(function(d){
-      if(done)return;done=true;clearTimeout(timer);pg.style.display='none';
-      if(d.IsErroredOnProcessing){toast('❌ '+(d.ErrorMessage?d.ErrorMessage[0]:'خطأ'));return;}
+      if(done)return;
       var tx='';
       if(d.ParsedResults&&d.ParsedResults[0])tx=(d.ParsedResults[0].ParsedText||'').trim();
-      if(tx){document.getElementById('etxt').value=cleanOCR(tx);toast('✅ تم استخراج النص — اضغط قراءة');stats.texts++;sv();}
-      else{toast('⚠️ لا نص — تأكد من وضوح الصورة واللغة');}
+      // إذا نجح OCR.space
+      if(tx&&tx.length>5&&!d.IsErroredOnProcessing){
+        done=true;clearTimeout(timer);pg.style.display='none';
+        document.getElementById('etxt').value=cleanOCR(tx);
+        toast('✅ تم استخراج النص — اضغط قراءة');stats.texts++;sv();
+        return;
+      }
+      // إذا فشل — نجرب OCR.space مع مفتاح آخر وEngine مختلف
+      if(done)return;
+      document.getElementById('ost').textContent='جارٍ إعادة المحاولة…';
+      var fd2=new FormData();
+      fd2.append('apikey','K81625539988957');
+      fd2.append('base64Image',b64);
+      fd2.append('language',ocrLang);
+      fd2.append('isOverlayRequired','false');
+      fd2.append('OCREngine','1');
+      fd2.append('scale','true');
+      fd2.append('detectOrientation','true');
+      return fetch(ocrUrl,{method:'POST',body:fd2})
+      .then(function(res2){return res2.json();})
+      .then(function(d2){
+        if(done)return;done=true;clearTimeout(timer);pg.style.display='none';
+        var tx2='';
+        if(d2.ParsedResults&&d2.ParsedResults[0])tx2=(d2.ParsedResults[0].ParsedText||'').trim();
+        if(tx2&&tx2.length>5){
+          document.getElementById('etxt').value=cleanOCR(tx2);
+          toast('✅ تم استخراج النص — اضغط قراءة');stats.texts++;sv();
+        } else {
+          toast('⚠️ لم يُعثر على نص — تأكد من وضوح الصورة واختيار اللغة الصحيحة');
+        }
+      });
     })
     .catch(function(e){if(done)return;done=true;clearTimeout(timer);pg.style.display='none';toast('❌ '+e.message);});
   };
