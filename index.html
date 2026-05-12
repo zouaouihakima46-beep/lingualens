@@ -616,6 +616,7 @@ function savPop(){
 
 /* TTS */
 var ttsFullText='';
+var ttsAudio=null; // مرجع عالمي للصوت الحالي
 
 function getBestVoice(langCode){
   var voices=window.speechSynthesis.getVoices();
@@ -633,6 +634,7 @@ function getRVoice(lang){
 }
 
 function gtTTS(text,lang,onEnd){
+  if(ttsAudio){ttsAudio.pause();ttsAudio=null;}
   var sentences=text.match(/[^.!?\u061F\u060C,\n]+[.!?\u061F\u060C,\n]*/g)||[text];
   var chunks=[],cur='';
   for(var i=0;i<sentences.length;i++){
@@ -641,32 +643,25 @@ function gtTTS(text,lang,onEnd){
   }
   if(cur.trim())chunks.push(cur.trim());
   if(!chunks.length){if(onEnd)onEnd();return;}
-  var ci=0;
-  var failCount=0;
+  var ci=0,failCount=0;
   function next(){
+    if(!ttsOn){if(onEnd)onEnd();return;}
     if(ci>=chunks.length){if(onEnd)onEnd();return;}
     var url='https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl='+lang+'&q='+encodeURIComponent(chunks[ci]);
     var a=new Audio(url);
-    a.oncanplaythrough=function(){a.play().catch(function(){failCount++;ci++;next();});};
-    a.onended=function(){failCount=0;ci++;next();};
-    a.onerror=function(){
-      failCount++;
-      if(failCount>=3){
-        // Google TTS محجوب — نوقف
-        if(onEnd)onEnd();
-        toast('\u26A0\uFE0F تعذّر نطق العربية — جرب مع VPN أو اتصال آخر');
-        return;
-      }
-      ci++;next();
-    };
+    ttsAudio=a;
+    var pct=Math.round(((ci+1)/chunks.length)*100);
+    document.getElementById('rfill').style.width=pct+'%';
+    document.getElementById('ppc').textContent=pct+'%';
     ci++;
-    // timeout لكل جزء
-    var t=setTimeout(function(){a.onerror&&a.onerror();},8000);
-    a.onended=function(){clearTimeout(t);failCount=0;ci++;next();};
-    a.load();
+    var t=setTimeout(function(){failCount++;if(failCount>=3){if(onEnd)onEnd();toast('\u26A0\uFE0F تعذّر نطق العربية');}else{next();}},10000);
+    a.onended=function(){clearTimeout(t);failCount=0;next();};
+    a.onerror=function(){clearTimeout(t);failCount++;if(failCount>=3){if(onEnd)onEnd();toast('\u26A0\uFE0F تعذّر نطق العربية');}else{next();}};
+    a.play().catch(function(){clearTimeout(t);failCount++;if(failCount>=3){if(onEnd)onEnd();}else{next();}});
   }
   next();
 }
+
 
 function spk(tx,lang){
   if(!window.speechSynthesis){toast('المتصفح لا يدعم النطق');return;}
@@ -687,6 +682,7 @@ function togTTS(){
   if(ttsOn){
     window.speechSynthesis.cancel();
     if(typeof responsiveVoice!=='undefined')responsiveVoice.cancel();
+    if(ttsAudio){ttsAudio.pause();ttsAudio=null;}
     ttsOn=false;document.getElementById('pbtn').textContent='\u25B6 استماع';
     document.querySelectorAll('.word.tts-active').forEach(function(el){el.classList.remove('tts-active');});
     document.getElementById('rfill').style.width='0%';document.getElementById('ppc').textContent='0%';
